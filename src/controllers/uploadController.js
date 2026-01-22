@@ -1,100 +1,82 @@
 const fs = require('fs');
 const path = require('path');
-const pool = require('../config/db');
-const safeName = require('../utils/safeName');
+const multer = require('multer');
 
-const BASE_DIR = path.join(__dirname, '../../uploads');
+// PHP safeFolderName
+const safeFolderName = (name = '') =>
+    name.replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
 
-exports.handleUpload = async (req, res) => {
-    const mode = req.body.mode;
+// multer 메모리 저장 (PHP tmp_name 역할)
+const upload = multer({ storage: multer.memoryStorage() }).single('file');
 
-    try {
+module.exports = (req, res) => {
+    upload(req, res, async err => {
+        if (err) {
+            return res.json({ success: false, message: err.message });
+        }
+
+        const mode = req.body.mode;
+
         /* ===============================
-           CASE 1: 게시글 생성
-        ================================ */
+           CASE 1 : board 생성
+        =============================== */
         if (mode === 'board') {
-            const { regEmail, regTitle, boardType } = req.body;
-
-            const [result] = await pool.execute(
-                `INSERT INTO boards (email, title, type, state, regDt)
-         VALUES (?, ?, ?, '1', NOW())`,
-                [regEmail, regTitle, boardType]
-            );
-
+            const boardSeq = Date.now(); // PHP time()
             return res.json({
                 success: true,
-                message: 'Board Created',
-                boardSeq: result.insertId
+                message: 'Board Created (Test Mode)',
+                boardSeq: String(boardSeq),
             });
         }
 
         /* ===============================
-           CASE 2: 파일 업로드
-        ================================ */
+           CASE 2 : file 업로드
+        =============================== */
         if (mode === 'file') {
-            if (!req.file) {
-                return res.json({ success: false, message: 'No File' });
+            const file = req.file;
+            if (!file) {
+                return res.json({ success: false, message: 'No File Uploaded' });
             }
 
             const {
-                boardSeq,
-                fileOrder,
-                regEmail,
-                regTitle,
-                description,
-                duration,
-                startSec,
-                endSec
+                regEmail = 'guest',
+                regTitle = 'no_title',
+                boardSeq = 0,
+                fileOrder = 0,
             } = req.body;
 
             const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const dirPath = path.join(
-                BASE_DIR,
-                safeName(regEmail),
+            const baseDir = path.join(__dirname, 'files');
+            const targetDir = path.join(
+                baseDir,
+                safeFolderName(regEmail),
                 today,
-                safeName(regTitle)
+                safeFolderName(regTitle)
             );
 
-            fs.mkdirSync(dirPath, { recursive: true });
+            // PHP mkdir(..., true)
+            fs.mkdirSync(targetDir, { recursive: true });
 
-            const safeFileName = `${fileOrder}_${safeName(req.file.originalname)}`;
-            const destPath = path.join(dirPath, safeFileName);
+            const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const saveName = `${fileOrder}_${safeName}`;
+            const destPath = path.join(targetDir, saveName);
 
-            fs.renameSync(req.file.path, destPath);
+            try {
+                fs.writeFileSync(destPath, file.buffer);
 
-            await pool.execute(
-                `INSERT INTO files
-        (boardSeq, fileName, originFileName, mimeType, size,
-         fileOrder, description, duration, startSec, endSec, regDt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-                [
-                    boardSeq,
-                    safeFileName,
-                    req.file.originalname,
-                    req.file.mimetype,
-                    req.file.size,
-                    fileOrder,
-                    description || '',
-                    duration || 0,
-                    startSec || 0,
-                    endSec || 0
-                ]
-            );
-
-            return res.json({
-                success: true,
-                message: 'Upload Success',
-                boardSeq
-            });
+                return res.json({
+                    success: true,
+                    message: 'Upload Success',
+                    boardSeq: String(boardSeq),
+                });
+            } catch (e) {
+                return res.json({
+                    success: false,
+                    message: 'File save failed',
+                });
+            }
         }
 
-        return res.json({ success: false, message: 'Invalid Mode' });
-
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({
-            success: false,
-            message: err.message
-        });
-    }
+        return res.json({ success: false, message: 'Invalid Access Mode' });
+    });
 };

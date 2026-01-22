@@ -12,10 +12,19 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "cors": "^2.8.5",
+    "cor": "^0.0.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "multer": "^2.0.2",
     "mysql2": "^3.16.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/choiinhyeong/onlaveo-upload.git"
+  },
+  "bugs": {
+    "url": "https://github.com/choiinhyeong/onlaveo-upload/issues"
+  },
+  "homepage": "https://github.com/choiinhyeong/onlaveo-upload#readme"
 }
