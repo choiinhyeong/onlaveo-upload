@@ -6,8 +6,10 @@ const uploadController = require('./controllers/uploadController');
 const app = express();
 const PORT = 3000;
 
-// PHP처럼 multipart/form-data 받기
-app.use(cors());
+app.use(cors({
+    origin: 'https://onlaveo.com',
+    credentials: true
+}));
 
 // upload3.php 역할
 app.post('/upload', uploadController);
