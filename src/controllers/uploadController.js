@@ -1,39 +1,24 @@
 const uploadToNAS = require('../services/ftpService');
+const path = require('path');
 
-module.exports = async (req, res) => {
+exports.upload = async (req, res) => {
     try {
-        const {
-            regEmail,
-            regTitle,
-            fileOrder
-        } = req.body;
-
         if (!req.file) {
-            return res.json({ success: false, message: '파일 없음' });
+            return res.json({ success: false });
         }
 
-        const result = await uploadToNAS(req.file.path, {
-            email: regEmail,
-            title: regTitle,
-            fileOrder,
-            originalName: req.file.originalname
-        });
+        const fileName = `${Date.now()}_${req.file.originalname}`;
+        const remotePath = `/upload/${fileName}`;
 
-        if (!result.success) {
-            return res.json({ success: false, message: 'NAS 업로드 실패' });
-        }
+        await uploadToNAS(req.file.path, remotePath);
 
-        return res.json({
+        res.json({
             success: true,
-            fileName: result.fileName,
-            path: result.remotePath
+            fileName,
+            filePath: remotePath
         });
-
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({
-            success: false,
-            message: err.message
-        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false });
     }
 };
