@@ -5,10 +5,10 @@ module.exports = async function uploadToNAS(localPath, fileName) {
 
     try {
         await client.access({
-            host: 'onlaveo.ddns.net',
-            user: 'onlaveo',
-            password: 'onlaveoONL4458',
-            port: 21
+            host: process.env.NAS_HOST,
+            user: process.env.NAS_FTP_USER,
+            password: process.env.NAS_FTP_PASS,
+            port: 22
         });
 
         await client.ensureDir('/onlaveo/files');

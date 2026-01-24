@@ -9,8 +9,8 @@ exports.upload = async (req, res) => {
         const safeOriginal = (req.file.originalname || 'file').replace(/[^\w.\-]/g, '_');
         const fileName = `${Date.now()}_${safeOriginal}`;
 
-        // NAS 저장 경로
-        const remotePath = `/onlaveo/files/${fileName}`;
+        // ✅ 핵심: /onlaveo/... 이런 경로는 버리고, "files/"로 바로 업로드
+        const remotePath = `files/${fileName}`;
 
         await uploadToNAS(req.file.path, remotePath);
 
@@ -21,7 +21,7 @@ exports.upload = async (req, res) => {
         });
     } catch (e) {
         console.error(e);
-        return res.status(500).json({ success: false });
+        return res.status(500).json({ success: false, message: String(e.message || e) });
     }
 };
 
