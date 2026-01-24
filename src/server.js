@@ -1,37 +1,24 @@
-const ftp = require('basic-ftp');
 const path = require('path');
-
-// ✅ 어디서 실행되든 무조건 이 .env를 읽게 고정
 require('dotenv').config({ path: '/root/onlaveo-upload/.env' });
 
-module.exports = async (localPath, remotePath) => {
-    const client = new ftp.Client(30 * 1000);
-    client.ftp.verbose = false;
+const express = require('express');
+const cors = require('cors');
 
-    const host = process.env.NAS_HOST;
-    const port = Number(process.env.NAS_FTP_PORT || 21);
-    const user = process.env.NAS_FTP_USER;
-    const password = process.env.NAS_FTP_PASS;
+const uploadRouter = require('./routes/upload'); // 라우터 쓰는 구조면
+// 또는 기존 컨트롤러 직접 라우팅이면 그대로
 
-    if (!host || !user || !password) {
-        throw new Error('Missing NAS env vars: NAS_HOST / NAS_FTP_USER / NAS_FTP_PASS');
-    }
+const app = express();
+const PORT = Number(process.env.PORT || 3000);
 
-    try {
-        await client.access({
-            host,
-            port,
-            user,
-            password,
-            secure: false
-        });
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGIN || 'https://onlaveo.com',
+    credentials: true
+}));
 
-        // ✅ 원격 폴더 없으면 생성 (권한 없으면 여기서 550 뜸)
-        const remoteDir = path.posix.dirname(remotePath);
-        await client.ensureDir(remoteDir);
+app.get('/health', (req, res) => res.json({ ok: true }));
 
-        await client.uploadFrom(localPath, remotePath);
-    } finally {
-        client.close();
-    }
-};
+app.use('/upload', uploadRouter);
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Node Upload Server running on port ${PORT}`);
+});

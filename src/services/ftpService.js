@@ -3,7 +3,9 @@ const path = require('path');
 
 module.exports = async (localPath, remotePath) => {
     const client = new ftp.Client(30 * 1000);
-    client.ftp.verbose = true; // 🔍 디버깅용
+
+    // 디버깅용: FTP 통신 로그 보고 싶으면 true
+    client.ftp.verbose = true;
 
     try {
         await client.access({
@@ -14,6 +16,7 @@ module.exports = async (localPath, remotePath) => {
             secure: false,
         });
 
+        // 예: remotePath = /onlaveo/files/xxx.txt
         const remoteDir = path.posix.dirname(remotePath);
         await client.ensureDir(remoteDir);
 
