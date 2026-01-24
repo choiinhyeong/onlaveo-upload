@@ -8,6 +8,9 @@ module.exports = async (localPath, remotePath) => {
     client.ftp.verbose = true;
 
     try {
+        // [추가] IPv4 연결을 강제하여 네트워크 혼선 방지
+        client.ftp.ipFamily = 4;
+
         await client.access({
             host: 'onlaveo.ddns.net',
             port: 21,
