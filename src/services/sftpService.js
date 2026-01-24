@@ -15,21 +15,20 @@ module.exports = async (localPath, remotePath) => {
     try {
         await sftp.connect(config);
 
-        // 1. 경로 보정: /onlaveo/files/파일명 형태가 되도록 설정
-        let finalPath = remotePath.startsWith('/onlaveo')
+        // 1. 원격 경로 보정 (/onlaveo/files/...)
+        let finalRemotePath = remotePath.startsWith('/onlaveo')
             ? remotePath
             : path.posix.join('/onlaveo', remotePath);
 
-        console.log(`📡 업로드 시도 경로: ${finalPath}`);
+        // 2. 로컬 경로 절대 경로화 (안전장치)
+        const absoluteLocalPath = path.resolve(localPath);
 
-        // 2. [수정] 폴더 생성(mkdir) 시도를 아예 하지 않음
-        // 이미 파일질라 이미지에서 /onlaveo/files 경로가 있는 것을 확인했으므로 바로 업로드합니다.
-        await sftp.fastPut(localPath, finalPath, {
-            concurrency: 1,
-            chunkSize: 32768,
-        });
+        console.log(`📡 전송 준비 - Local: ${absoluteLocalPath} -> Remote: ${finalRemotePath}`);
 
-        console.log(`🚀 나스 업로드 성공: ${finalPath}`);
+        // 3. fastPut 대신 put 사용 (No such file Local 에러 해결에 더 효과적)
+        await sftp.put(absoluteLocalPath, finalRemotePath);
+
+        console.log(`🚀 나스 업로드 성공: ${finalRemotePath}`);
     } catch (err) {
         console.error('❌ SFTP 업로드 상세 에러:', err.message);
         throw err;
