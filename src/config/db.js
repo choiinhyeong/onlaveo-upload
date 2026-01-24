@@ -1,7 +1,7 @@
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-    host: 'u08021000-l20-001.iwinv.kr',
+    host: 'localhost',
     user: 'onlaveo',
     password: '258135sj!!',
     database: 'onlaveo',
