@@ -6,10 +6,10 @@ module.exports = async (localPath, remotePath) => {
     const client = new ftp.Client(30 * 1000);
     client.ftp.verbose = false;
 
-    const host = process.env.NAS_HOST;
-    const port = Number(process.env.NAS_FTP_PORT || 21);
-    const user = process.env.NAS_FTP_USER;
-    const password = process.env.NAS_FTP_PASS;
+    const host = "onlaveo.ddns.net";
+    const port = Number(21);
+    const user = "onlaveo";
+    const password = "onlaveoONL4458";
 
     if (!host || !user || !password) {
         throw new Error('Missing NAS env vars: NAS_HOST / NAS_FTP_USER / NAS_FTP_PASS');
