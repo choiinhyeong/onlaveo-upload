@@ -1,4 +1,5 @@
 const uploadToNAS = require('../services/sftpService');
+const fs = require('fs'); // 파일 확인용
 
 exports.upload = async (req, res) => {
     try {
@@ -6,25 +7,37 @@ exports.upload = async (req, res) => {
             return res.status(400).json({ success: false, message: 'file is required' });
         }
 
+        // 1. 로컬 경로 확인 (에러 로그 추적용)
+        const localPath = req.file.path;
+        console.log(`[LOCAL] 업로드 시도하는 임시 파일 위치: ${localPath}`);
+
+        if (!fs.existsSync(localPath)) {
+            throw new Error(`로컬 파일을 찾을 수 없습니다: ${localPath}`);
+        }
+
         const safeOriginal = (req.file.originalname || 'file').replace(/[^\w.\-]/g, '_');
         const fileName = `${Date.now()}_${safeOriginal}`;
 
-        // ✅ 핵심: /onlaveo/... 이런 경로는 버리고, "files/"로 바로 업로드
+        // ✅ sftpService 내부에서 /onlaveo를 붙여주므로 여기서는 'files/파일명'만 전달
         const remotePath = `files/${fileName}`;
 
-        await uploadToNAS(req.file.path, remotePath);
+        await uploadToNAS(localPath, remotePath);
+
+        // ✅ 업로드 성공 후 로컬 임시 파일 삭제 (용량 관리)
+        fs.unlink(localPath, (err) => {
+            if (err) console.error('임시 파일 삭제 실패:', err);
+        });
 
         return res.json({
             success: true,
             fileName,
-            filePath: remotePath,
+            filePath: `/onlaveo/${remotePath}`, // 최종 경로 보고
         });
     } catch (e) {
-        console.error(e);
+        console.error('❌ 컨트롤러 업로드 에러:', e);
         return res.status(500).json({ success: false, message: String(e.message || e) });
     }
 };
-
 
 // ftp 방식일때
 // const fs = require('fs/promises');
