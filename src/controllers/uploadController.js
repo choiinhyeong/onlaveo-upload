@@ -1,82 +1,48 @@
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-// PHP safeFolderName
-const safeFolderName = (name = '') =>
-    name.replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
+const upload = multer({ dest: 'uploads/tmp' });
 
-// multer 메모리 저장 (PHP tmp_name 역할)
-const upload = multer({ storage: multer.memoryStorage() }).single('file');
+module.exports = async (req, res) => {
+    try {
+        const {
+            regEmail,
+            regTitle,
+            boardSeq,
+            fileOrder,
+            description,
+            duration,
+            startSec,
+            endSec
+        } = req.body;
 
-module.exports = (req, res) => {
-    upload(req, res, async err => {
-        if (err) {
-            return res.json({ success: false, message: err.message });
+        const file = req.file;
+        if (!file) {
+            return res.json({ success: false, message: 'No file uploaded' });
         }
 
-        const mode = req.body.mode;
+        const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+        const safe = (s) => s.replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
 
-        /* ===============================
-           CASE 1 : board 생성
-        =============================== */
-        if (mode === 'board') {
-            const boardSeq = Date.now(); // PHP time()
-            return res.json({
-                success: true,
-                message: 'Board Created (Test Mode)',
-                boardSeq: String(boardSeq),
-            });
-        }
+        const targetDir = path.join(
+            'uploads',
+            safe(regEmail),
+            today,
+            safe(regTitle)
+        );
 
-        /* ===============================
-           CASE 2 : file 업로드
-        =============================== */
-        if (mode === 'file') {
-            const file = req.file;
-            if (!file) {
-                return res.json({ success: false, message: 'No File Uploaded' });
-            }
+        fs.mkdirSync(targetDir, { recursive: true });
 
-            const {
-                regEmail = 'guest',
-                regTitle = 'no_title',
-                boardSeq = 0,
-                fileOrder = 0,
-            } = req.body;
+        const saveName = `${fileOrder}_${file.originalname}`;
+        const destPath = path.join(targetDir, saveName);
 
-            const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const baseDir = path.join(__dirname, 'files');
-            const targetDir = path.join(
-                baseDir,
-                safeFolderName(regEmail),
-                today,
-                safeFolderName(regTitle)
-            );
+        fs.renameSync(file.path, destPath);
 
-            // PHP mkdir(..., true)
-            fs.mkdirSync(targetDir, { recursive: true });
+        res.json({ success: true, file: saveName });
 
-            const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const saveName = `${fileOrder}_${safeName}`;
-            const destPath = path.join(targetDir, saveName);
-
-            try {
-                fs.writeFileSync(destPath, file.buffer);
-
-                return res.json({
-                    success: true,
-                    message: 'Upload Success',
-                    boardSeq: String(boardSeq),
-                });
-            } catch (e) {
-                return res.json({
-                    success: false,
-                    message: 'File save failed',
-                });
-            }
-        }
-
-        return res.json({ success: false, message: 'Invalid Access Mode' });
-    });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 };
