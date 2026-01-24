@@ -1,7 +1,7 @@
-import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
 
@@ -27,7 +27,7 @@ router.post('/file', upload.single('file'), async (req, res) => {
             return res.json({ success: false, message: 'No file uploaded' });
         }
 
-        const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         const safe = (s) => s.replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
 
         const targetDir = path.join(
@@ -58,4 +58,4 @@ router.post('/file', upload.single('file'), async (req, res) => {
     }
 });
 
-export default router;
+module.exports = router;
