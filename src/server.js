@@ -1,4 +1,3 @@
-const path = require('path');
 require('dotenv').config({ path: '/root/onlaveo-upload/.env' });
 
 const express = require('express');
