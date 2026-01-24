@@ -8,28 +8,22 @@ module.exports = async (localPath, remotePath) => {
         host: process.env.NAS_HOST,
         username: process.env.NAS_FTP_USER,
         password: process.env.NAS_FTP_PASS,
-        port: 22, // SFTP 활성화 시 설정한 포트
+        port: 22,
         readyTimeout: 30000,
     };
 
     try {
         await sftp.connect(config);
 
-        // 1. 경로 보정: 이미지에서 확인된 대로 '/onlaveo/files'가 기준이 되도록 설정
+        // 1. 경로 보정: /onlaveo/files/파일명 형태가 되도록 설정
         let finalPath = remotePath.startsWith('/onlaveo')
             ? remotePath
             : path.posix.join('/onlaveo', remotePath);
 
-        // 2. 폴더 체크: 이미 존재한다고 하셨으므로, 에러 방지를 위해 존재 여부만 확인
-        const remoteDir = path.posix.dirname(finalPath);
-        const dirExists = await sftp.exists(remoteDir);
+        console.log(`📡 업로드 시도 경로: ${finalPath}`);
 
-        // 폴더가 없을 때만 생성을 시도하여 루트(/) 권한 충돌 방지
-        if (!dirExists) {
-            await sftp.mkdir(remoteDir, true);
-        }
-
-        // 3. 파일 업로드: fastPut을 사용하여 안정적으로 전송
+        // 2. [수정] 폴더 생성(mkdir) 시도를 아예 하지 않음
+        // 이미 파일질라 이미지에서 /onlaveo/files 경로가 있는 것을 확인했으므로 바로 업로드합니다.
         await sftp.fastPut(localPath, finalPath, {
             concurrency: 1,
             chunkSize: 32768,
