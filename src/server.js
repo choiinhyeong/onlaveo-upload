@@ -6,16 +6,18 @@ const uploadController = require('./controllers/uploadController');
 const app = express();
 const PORT = 3000;
 
-const upload = multer({ dest: 'uploads/tmp' });
+const upload = multer({
+    dest: 'uploads/tmp',
+    limits: { fileSize: 1024 * 1024 * 1024 }
+});
 
 app.use(cors({
     origin: 'https://onlaveo.com',
     credentials: true
 }));
 
-// upload3.php 역할
 app.post('/upload', upload.single('file'), uploadController);
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Node Upload Server running on port ${PORT}`);
+    console.log(`🚀 Upload server on ${PORT}`);
 });
