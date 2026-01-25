@@ -7,7 +7,7 @@ const path = require("path");
 module.exports = async (localPath, remotePath) => {
     const client = new ftp.Client();
 
-    // 타임아웃을 60초로 설정하여 대용량 파일이나 느린 연결에 대비
+    // 타임아웃 60초 설정 (대용량 파일 대비)
     client.ftp.timeout = 60000;
 
     try {
@@ -15,42 +15,36 @@ module.exports = async (localPath, remotePath) => {
             host: process.env.NAS_HOST,
             user: process.env.NAS_FTP_USER,
             password: process.env.NAS_FTP_PASS,
-            port: 21,           // PHP에서 성공했던 포트
-            secure: false       // 일반 FTP 모드 (보안 연결 미사용)
+            port: 21,
+            secure: false
         });
 
-        // 패시브 모드를 끄고 액티브 모드로 시도 (혹시 모르니)
-        // 만약 이것도 안 되면 무조건 공유기 포트포워딩 문제입니다.
-        client.ftp.passive = false;
+        // ✅ [핵심] 패시브 모드 최적화 설정
+        client.ftp.ipFamily = 4;                // IPv4 강제
+        client.ftp.pasvUrlReplacement = true;   // 나스가 내부 사설 IP를 응답할 경우 호스트 주소로 자동 교체
 
-        // ✅ IPv4 연결 강제: 패시브 모드 타임아웃 방지를 위한 핵심 설정
-        client.ftp.ipFamily = 4;
+        console.log("🔗 FTP(21번) 연결 및 로그인 성공 (IPv4/PASV 최적화)");
 
-        console.log("🔗 FTP(21번) 연결 및 로그인 성공 (IPv4)");
-
-        // ✅ 나스 내 실제 저장 폴더로 이동
-        // 파일질라에서 확인한 /onlaveo/files 경로 기준
+        // 나스 내 저장 폴더로 이동
         await client.cd("/onlaveo/files");
         console.log("📂 나스 목적지 폴더 진입 완료");
 
-        // 전달받은 remotePath에서 파일명만 추출
         const fileName = path.basename(remotePath);
 
-        // ✅ 전송 상태 실시간 모니터링 (pm2 logs에서 확인 가능)
+        // 전송 상태 모니터링
         client.trackProgress(info => {
             console.log(`📊 전송 중: ${info.name} (${info.bytesOverall} bytes 완료)`);
         });
 
-        // ✅ 실제 업로드 실행
+        // 실제 업로드 실행
         await client.uploadFrom(localPath, fileName);
 
         console.log(`✅ 나스 업로드 최종 성공: ${fileName}`);
 
     } catch (err) {
         console.error("❌ FTP 서비스 상세 에러:", err.message);
-        throw err; // 에러를 컨트롤러로 던져서 처리하게 함
+        throw err;
     } finally {
-        // 성공/실패 여부와 상관없이 연결을 안전하게 닫음
         client.close();
         console.log("🔌 FTP 연결 종료");
     }
