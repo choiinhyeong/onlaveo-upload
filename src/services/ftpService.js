@@ -1,13 +1,9 @@
 const ftp = require("basic-ftp");
 
-/**
- * 나스 서버로 여러 파일 일괄 업로드
- * @param {Array} files - [{ localPath, fileName }] 형태의 배열
- * @param {string} targetDir - 나스 저장 경로
- */
 module.exports = async (files, targetDir) => {
     const client = new ftp.Client();
-    client.ftp.timeout = 120000; // 40장을 대비해 타임아웃을 2분으로 늘림
+    // ✅ 타임아웃을 10분(600,000ms)으로 대폭 늘립니다. 현재 속도가 느리기 때문입니다.
+    client.ftp.timeout = 600000;
 
     try {
         await client.access({
@@ -21,21 +17,20 @@ module.exports = async (files, targetDir) => {
         client.ftp.ipFamily = 4;
         client.ftp.pasvUrlReplacement = true;
 
-        // 1. 목적지 폴더 한 번만 생성 및 이동
         await client.ensureDir(targetDir);
 
-        // 2. 연결을 유지한 채로 파일 배열을 순회하며 업로드
         for (const file of files) {
-            console.log(`🚀 업로드 시작: ${file.fileName}`);
+            console.log(`🚀 전송 시작: ${file.fileName}`);
+            // 개별 파일 전송 성공 여부를 확인하며 진행
             await client.uploadFrom(file.localPath, file.fileName);
+            console.log(`✅ 전송 완료: ${file.fileName}`);
         }
 
-        console.log(`✅ 총 ${files.length}개 파일 업로드 완료`);
-
     } catch (err) {
-        console.error("❌ FTP 일괄 업로드 에러:", err.message);
+        // 상세 에러 로그 확인용
+        console.error("❌ FTP 상세 에러 발생 원인:", err.code, err.message);
         throw err;
     } finally {
-        client.close(); // 모든 작업이 끝나고 단 한 번만 닫음
+        client.close();
     }
 };
