@@ -1,14 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-// 폴더명 안전하게 처리
 const safeFolderName = (name) => {
     return name ? name.replace(/[^a-zA-Z0-9가-힣_-]/gu, '_') : 'unknown';
 };
 
 exports.upload = async (req, res) => {
+    const files = req.files || (req.file ? [req.file] : []);
     try {
-        const files = req.files || (req.file ? [req.file] : []);
         if (files.length === 0) return res.status(400).send("파일이 없습니다.");
 
         const { regEmail, regTitle } = req.body;
@@ -17,36 +16,41 @@ exports.upload = async (req, res) => {
         const folderEmail = safeFolderName(regEmail);
         const folderTitle = safeFolderName(regTitle);
 
-        // ✅ 1. 절대 경로로 지정 (서버 터미널에서 pwd 쳤을 때 나오는 경로 확인)
-        // 만약 소스가 /root/onlaveo-upload 폴더에 있다면 아래처럼 적으세요.
         const projectRoot = '/root/onlaveo-upload';
         const storageDir = path.join(projectRoot, 'uploads', folderEmail, today, folderTitle);
 
-        // ✅ 2. 폴더가 없으면 생성
         if (!fs.existsSync(storageDir)) {
             fs.mkdirSync(storageDir, { recursive: true });
-            console.log(`📁 폴더 생성됨: ${storageDir}`);
         }
 
         files.forEach((file, index) => {
-            const safeFileName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const saveName = `${Date.now()}_${index}_${safeFileName}`;
+            // 순서_파일명 (UUID 제거)
+            const safeOriginalName = file.originalname.replace(/\s+/g, '_');
+            const saveName = `${index}_${safeOriginalName}`;
             const finalPath = path.join(storageDir, saveName);
 
-            // ✅ 3. multer가 tmp에 넣은 파일을 새 위치로 이동
             if (fs.existsSync(file.path)) {
                 fs.renameSync(file.path, finalPath);
-                console.log(`✅ 이동 완료: ${file.path} -> ${finalPath}`);
-            } else {
-                console.error(`❌ 원본 파일(tmp)을 찾을 수 없음: ${file.path}`);
             }
         });
 
-        return res.json({ success: true, message: "서버 로컬 저장 완료!" });
+        return res.json({ success: true, message: "서버 저장 및 임시 파일 정리 완료!" });
 
     } catch (e) {
-        console.error("❌ 업로드 에러 상세:", e);
+        console.error("❌ 업로드 처리 에러:", e.message);
         return res.status(500).json({ success: false, message: e.message });
+    } finally {
+        // ✅ [핵심] 처리가 끝난 후 tmp에 남은 파일들 삭제 (메모리/용량 관리)
+        files.forEach(file => {
+            if (fs.existsSync(file.path)) {
+                try {
+                    fs.unlinkSync(file.path);
+                    console.log(`🧹 임시 파일 삭제 완료: ${file.path}`);
+                } catch (err) {
+                    console.error("임시 파일 삭제 실패:", err.message);
+                }
+            }
+        });
     }
 };
 
