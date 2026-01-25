@@ -1,4 +1,5 @@
 const SftpClient = require('ssh2-sftp-client');
+const path = require('path');
 
 module.exports = async (localPath, remotePath) => {
     const sftp = new SftpClient();
@@ -12,21 +13,34 @@ module.exports = async (localPath, remotePath) => {
             readyTimeout: 30000,
         });
 
-        // ✅ [핵심] 모든 경로 체크 로직 삭제
-        // 터미널에서 확인한 절대 경로를 그대로 사용합니다.
-        const finalRemotePath = remotePath.startsWith('/onlaveo')
-            ? remotePath
-            : `/onlaveo/${remotePath.replace(/^\/+/, '')}`;
+        // 1. 현재 접속된 위치가 어디인지 로그로 찍어 확인합니다.
+        const currentDir = await sftp.pwd();
+        console.log(`📡 SFTP 접속 현재 위치(PWD): ${currentDir}`);
 
-        console.log(`📡 즉시 업로드 시도: ${finalRemotePath}`);
+        // 2. 파일명만 추출
+        const fileName = path.basename(remotePath);
 
-        // ✅ mkdir 과정 없이 바로 put 실행
-        // 폴더가 이미 있으므로 mkdir을 실행하면 권한 에러만 발생합니다.
-        await sftp.put(localPath, finalRemotePath);
+        // 3. 경로를 완전히 단순화합니다.
+        // /onlaveo/files 인지 그냥 files 인지 서버가 알아서 판단하게 합니다.
+        // 터미널에서 cd onlaveo -> cd files가 성공했으므로 이 순차적 경로를 사용합니다.
+        let finalPath = '';
+        if (currentDir === '/') {
+            finalPath = `onlaveo/files/${fileName}`;
+        } else if (currentDir.includes('onlaveo')) {
+            finalPath = `files/${fileName}`;
+        } else {
+            // 예외 상황 대비: 최대한 원본 경로 유지
+            finalPath = remotePath.replace(/^\/+/, '');
+        }
 
-        console.log(`🚀 나스 업로드 성공!`);
+        console.log(`🚀 최종 업로드 시도 경로: ${finalPath}`);
+
+        // 4. 즉시 업로드 (mkdir 없이)
+        await sftp.put(localPath, finalPath);
+
+        console.log(`✅ 나스 업로드 성공!`);
     } catch (err) {
-        console.error('❌ SFTP 업로드 상세 에러:', err.message);
+        console.error('❌ SFTP 최종 에러:', err.message);
         throw err;
     } finally {
         try { await sftp.end(); } catch (_) {}
