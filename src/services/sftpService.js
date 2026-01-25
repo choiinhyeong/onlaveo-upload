@@ -10,34 +10,27 @@ module.exports = async (localPath, remotePath) => {
             username: process.env.NAS_FTP_USER,
             password: process.env.NAS_FTP_PASS,
             port: 22,
-            readyTimeout: 40000, // 대기 시간을 조금 더 늘림
         });
 
         console.log('🔗 SFTP 연결 성공');
 
-        // 순차적 폴더 이동 (이미 검증됨)
+        // 파일질라 경로(/onlaveo/files)를 그대로 따라갑니다.
+        // 1. 먼저 onlaveo 진입
         await sftp.cwd('onlaveo');
+        // 2. 그다음 files 진입
         await sftp.cwd('files');
-        console.log('📂 나스 최종 목적지 진입 완료');
 
         const fileName = path.basename(remotePath);
+        console.log(`🚀 목적지: /onlaveo/files/${fileName}`);
 
-        // ✅ [핵심 수정] 전송 옵션을 추가합니다.
-        // 나스 서버에 따라 기본 패킷 크기가 너무 크면 'No response'를 뱉을 수 있습니다.
-        await sftp.put(localPath, fileName, {
-            flags: 'w',           // 쓰기 모드
-            encoding: null,       // 바이너리 데이터 유지
-            mode: 0o666,          // 권한 설정
-            autoClose: true       // 완료 후 스트림 닫기
-        });
+        // 현재 위치에 파일 업로드
+        await sftp.put(localPath, fileName);
 
-        console.log(`✅ 나스 업로드 최종 성공: ${fileName}`);
-
+        console.log(`✅ 업로드 성공!`);
     } catch (err) {
-        // 만약 'No response'가 계속 뜨면 fastPut으로 교체해볼 수 있습니다.
-        console.error('❌ SFTP 상세 에러:', err.message);
+        console.error('❌ 최종 에러:', err.message);
         throw err;
     } finally {
-        try { await sftp.end(); } catch (_) {}
+        await sftp.end();
     }
 };
