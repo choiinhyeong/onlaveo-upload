@@ -1,9 +1,12 @@
 const ftp = require("basic-ftp");
+const path = require("path");
 
-module.exports = async (files, targetDir) => {
+/**
+ * 나스 서버로 파일 업로드 (동적 경로 생성 포함)
+ */
+module.exports = async (localPath, targetDir, fileName) => {
     const client = new ftp.Client();
-    // ✅ 타임아웃을 10분(600,000ms)으로 대폭 늘립니다. 현재 속도가 느리기 때문입니다.
-    client.ftp.timeout = 600000;
+    client.ftp.timeout = 60000; // 타임아웃 1분
 
     try {
         await client.access({
@@ -14,21 +17,21 @@ module.exports = async (files, targetDir) => {
             secure: false
         });
 
+        // 패시브 모드 및 IPv4 최적화
         client.ftp.ipFamily = 4;
         client.ftp.pasvUrlReplacement = true;
 
+        // ✅ PHP의 ftp_mkdir_recursive와 동일한 기능
+        // targetDir가 없으면 전체 경로를 계층적으로 생성하고 이동합니다.
         await client.ensureDir(targetDir);
+        console.log(`📂 나스 목적지 준비 완료: ${targetDir}`);
 
-        for (const file of files) {
-            console.log(`🚀 전송 시작: ${file.fileName}`);
-            // 개별 파일 전송 성공 여부를 확인하며 진행
-            await client.uploadFrom(file.localPath, file.fileName);
-            console.log(`✅ 전송 완료: ${file.fileName}`);
-        }
+        // 업로드 실행
+        await client.uploadFrom(localPath, fileName);
+        console.log(`✅ 나스 업로드 최종 성공: ${targetDir}/${fileName}`);
 
     } catch (err) {
-        // 상세 에러 로그 확인용
-        console.error("❌ FTP 상세 에러 발생 원인:", err.code, err.message);
+        console.error("❌ FTP 서비스 상세 에러:", err.message);
         throw err;
     } finally {
         client.close();
