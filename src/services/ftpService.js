@@ -2,7 +2,7 @@ const ftp = require("basic-ftp");
 
 module.exports = async (fileTasks, targetDir) => {
     const client = new ftp.Client();
-    client.ftp.timeout = 600000; // 10분 설정 (2.5Gbps 서버여도 나스 속도 고려)
+    client.ftp.timeout = 600000; // 10분 설정
 
     try {
         await client.access({
@@ -16,23 +16,23 @@ module.exports = async (fileTasks, targetDir) => {
         client.ftp.ipFamily = 4;
         client.ftp.pasvUrlReplacement = true;
 
-        // ✅ 파일질라 경로에 맞춰 절대 경로로 접근 시도
-        // targetDir 예: /onlaveo/files/email/date/title
-        console.log(`🔗 FTP 연결 성공. 목적지 생성 및 이동 중: ${targetDir}`);
-
+        // 폴더를 한 번만 만들고 들어갑니다.
         await client.ensureDir(targetDir);
-        console.log(`📂 이동 완료: ${await client.pwd()}`);
 
+        console.log(`🚀 일괄 전송 시작 (총 ${fileTasks.length}개)`);
+
+        // ✅ 반복문 안에서 업로드만 수행 (연결 유지)
         for (const task of fileTasks) {
-            console.log(`🚀 업로드 시작: ${task.fileName}`);
+            console.log(`📡 전송 중: ${task.fileName}`);
             await client.uploadFrom(task.localPath, task.fileName);
-            console.log(`✅ 완료: ${task.fileName}`);
         }
 
+        console.log(`✅ 모든 파일 전송 완료!`);
+
     } catch (err) {
-        console.error("❌ FTP 서비스 상세 에러:", err.message);
+        console.error("❌ FTP 에러:", err.message);
         throw err;
     } finally {
-        client.close();
+        client.close(); // 마지막에 딱 한 번만 닫습니다.
     }
 };
