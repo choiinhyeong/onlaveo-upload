@@ -1,4 +1,4 @@
-const uploadToNAS = require('../services/sftpService');
+const uploadToNAS = require('../services/ftpService');
 const fs = require('fs'); // 파일 확인용
 
 exports.upload = async (req, res) => {
