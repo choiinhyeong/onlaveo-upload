@@ -15,26 +15,26 @@ module.exports = async (localPath, remotePath) => {
 
         console.log('🔗 SFTP 연결 성공');
 
+        // ✅ 수정: cd 대신 cwd를 사용하여 한 단계씩 이동합니다.
         // 1단계: onlaveo 폴더로 이동
-        // 앞서 ls에서 보였던 그 이름 그대로 들어갑니다.
-        await sftp.cd('onlaveo');
-        console.log('📂 1단계: onlaveo 진입 완료');
+        await sftp.cwd('onlaveo');
+        console.log('📂 1단계: onlaveo 진입 성공');
 
         // 2단계: files 폴더로 이동
-        await sftp.cd('files');
-        console.log('📂 2단계: files 진입 완료');
+        await sftp.cwd('files');
+        console.log('📂 2단계: files 진입 성공');
 
-        // 3단계: 이제 위치가 /onlaveo/files 이므로 파일명만 사용해서 업로드
+        // 3단계: 파일명만 추출해서 현재 폴더에 업로드
         const fileName = path.basename(remotePath);
         console.log(`🚀 최종 업로드 파일명: ${fileName}`);
 
-        // 현재 폴더(.)에 바로 저장
-        await sftp.put(localPath, `./${fileName}`);
+        // 현재 위치(onlaveo/files)에 파일 업로드
+        await sftp.put(localPath, fileName);
 
         console.log(`✅ 나스 업로드 최종 성공!`);
 
     } catch (err) {
-        console.error('❌ SFTP 최종 단계 에러:', err.message);
+        console.error('❌ SFTP 상세 에러:', err.message);
         throw err;
     } finally {
         try { await sftp.end(); } catch (_) {}
