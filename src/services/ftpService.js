@@ -1,12 +1,14 @@
 const ftp = require("basic-ftp");
-const path = require("path");
 
 /**
- * 나스 서버로 파일 업로드 (동적 경로 생성 포함)
+ * 나스 서버로 파일 일괄 업로드
+ * @param {Array} fileTasks - [{ localPath, fileName }]
+ * @param {string} targetDir - 나스 저장 경로 (예: files/user/20260126/title)
  */
-module.exports = async (localPath, targetDir, fileName) => {
+module.exports = async (fileTasks, targetDir) => {
     const client = new ftp.Client();
-    client.ftp.timeout = 60000; // 타임아웃 1분
+    // 속도가 느린 환경이므로 타임아웃을 10분으로 넉넉히 설정
+    client.ftp.timeout = 600000;
 
     try {
         await client.access({
@@ -17,18 +19,20 @@ module.exports = async (localPath, targetDir, fileName) => {
             secure: false
         });
 
-        // 패시브 모드 및 IPv4 최적화
         client.ftp.ipFamily = 4;
         client.ftp.pasvUrlReplacement = true;
 
-        // ✅ PHP의 ftp_mkdir_recursive와 동일한 기능
-        // targetDir가 없으면 전체 경로를 계층적으로 생성하고 이동합니다.
-        await client.ensureDir(targetDir);
-        console.log(`📂 나스 목적지 준비 완료: ${targetDir}`);
+        console.log("🔗 FTP 연결 성공. 현재 위치:", await client.pwd());
 
-        // 업로드 실행
-        await client.uploadFrom(localPath, fileName);
-        console.log(`✅ 나스 업로드 최종 성공: ${targetDir}/${fileName}`);
+        // PHP의 ftp_mkdir_recursive와 동일: 폴더가 없으면 생성하고 진입
+        await client.ensureDir(targetDir);
+        console.log(`📂 목적지 이동 완료: ${targetDir}`);
+
+        for (const task of fileTasks) {
+            console.log(`🚀 업로드 시작: ${task.fileName}`);
+            await client.uploadFrom(task.localPath, task.fileName);
+            console.log(`✅ 업로드 완료: ${task.fileName}`);
+        }
 
     } catch (err) {
         console.error("❌ FTP 서비스 상세 에러:", err.message);

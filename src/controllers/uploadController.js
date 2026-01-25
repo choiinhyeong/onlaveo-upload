@@ -1,45 +1,61 @@
 const uploadToNAS = require('../services/ftpService');
 const fs = require('fs');
+const path = require('path');
+
+// PHP: preg_replace('/[^a-zA-Z0-9가-힣_-]/u', '_', $name);
+const safeFolderName = (name) => {
+    return name.replace(/[^a-zA-Z0-9가-힣_-]/gu, '_');
+};
 
 exports.upload = async (req, res) => {
+    const uploadedLocalPaths = [];
     try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'file is required' });
-        }
+        // 단일 파일(req.file) 또는 다중 파일(req.files) 대응
+        const files = req.files || (req.file ? [req.file] : []);
+        if (files.length === 0) return res.status(400).json({ success: false, message: "파일 없음" });
 
-        const localPath = req.file.path;
-        console.log(`[LOCAL] 업로드 시도하는 임시 파일 위치: ${localPath}`);
+        const { regEmail, regTitle } = req.body;
 
-        if (!fs.existsSync(localPath)) {
-            throw new Error(`로컬 파일을 찾을 수 없습니다: ${localPath}`);
-        }
+        // PHP와 동일한 날짜 포맷 (Ymd)
+        const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 
-        // 파일명 안전하게 변경
-        const safeOriginal = (req.file.originalname || 'file').replace(/[^\w.\-]/g, '_');
-        const fileName = `${Date.now()}_${safeOriginal}`;
+        const folderEmail = safeFolderName(regEmail || 'unknown');
+        const folderTitle = safeFolderName(regTitle || 'untitled');
 
-        // ✅ [중요 수정] 이제 서비스 내부에서 cd("/onlaveo/files")를 하므로
-        // 서비스에는 '파일명'만 넘겨주면 됩니다.
-        await uploadToNAS(localPath, fileName);
+        // ✅ 550 에러 방지: 나스 접속 시 'onlaveo'가 루트라면 'files/'부터 시작해야 함
+        const targetBaseDir = `files/${folderEmail}/${today}/${folderTitle}`;
 
-        // 업로드 성공 후 로컬 임시 파일 삭제
-        fs.unlink(localPath, (err) => {
-            if (err) console.error('임시 파일 삭제 실패:', err);
+        // 전송할 파일 리스트 정리
+        const fileTasks = files.map((file, index) => {
+            uploadedLocalPaths.push(file.path);
+
+            // PHP: $saveName = $fileOrder . "_" . $originFileName;
+            // 여기서는 안전을 위해 index와 타임스탬프를 조합하거나 PHP 규칙을 따릅니다.
+            const safeOriginName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const saveName = `${index}_${Date.now()}_${safeOriginName}`;
+
+            return {
+                localPath: file.path,
+                fileName: saveName
+            };
         });
+
+        // NAS 업로드 실행 (일괄 전송)
+        await uploadToNAS(fileTasks, targetBaseDir);
+
+        // 로컬 임시 파일 삭제
+        uploadedLocalPaths.forEach(p => { if (fs.existsSync(p)) fs.unlinkSync(p); });
 
         return res.json({
             success: true,
-            fileName,
-            filePath: `/onlaveo/files/${fileName}`, // 최종 경로 보고 (나스 실제 경로 기준)
+            message: "나스 업로드 성공",
+            path: targetBaseDir,
+            count: fileTasks.length
         });
+
     } catch (e) {
-        console.error('❌ 컨트롤러 업로드 에러:', e);
-
-        // 에러 발생 시에도 임시 파일이 남지 않도록 삭제 시도
-        if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
-
-        return res.status(500).json({ success: false, message: String(e.message || e) });
+        console.error("❌ 컨트롤러 에러:", e.message);
+        uploadedLocalPaths.forEach(p => { if (fs.existsSync(p)) fs.unlinkSync(p); });
+        return res.status(500).json({ success: false, message: e.message });
     }
 };
