@@ -19,6 +19,10 @@ module.exports = async (localPath, remotePath) => {
             secure: false       // 일반 FTP 모드 (보안 연결 미사용)
         });
 
+        // 패시브 모드를 끄고 액티브 모드로 시도 (혹시 모르니)
+        // 만약 이것도 안 되면 무조건 공유기 포트포워딩 문제입니다.
+        client.ftp.passive = false;
+
         // ✅ IPv4 연결 강제: 패시브 모드 타임아웃 방지를 위한 핵심 설정
         client.ftp.ipFamily = 4;
 
