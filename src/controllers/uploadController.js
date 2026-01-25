@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// 폴더명으로 사용할 수 없는 문자 제거 함수 (PHP 로직 이식)
+// 폴더명 안전하게 처리
 const safeFolderName = (name) => {
     return name ? name.replace(/[^a-zA-Z0-9가-힣_-]/gu, '_') : 'unknown';
 };
@@ -14,41 +14,38 @@ exports.upload = async (req, res) => {
         const { regEmail, regTitle } = req.body;
         const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 
-        // PHP 로직과 동일하게 폴더명 정리
         const folderEmail = safeFolderName(regEmail);
         const folderTitle = safeFolderName(regTitle);
 
-        // ✅ 서버 내부 저장 절대 경로 (프로젝트 루트의 uploads 폴더 기준)
-        // __dirname은 현재 파일(controllers) 위치이므로 한 단계 위(..)로 이동
-        const storageDir = path.join(__dirname, '../uploads', folderEmail, today, folderTitle);
+        // ✅ 1. 절대 경로로 지정 (서버 터미널에서 pwd 쳤을 때 나오는 경로 확인)
+        // 만약 소스가 /root/onlaveo-upload 폴더에 있다면 아래처럼 적으세요.
+        const projectRoot = '/root/onlaveo-upload';
+        const storageDir = path.join(projectRoot, 'uploads', folderEmail, today, folderTitle);
 
-        // 폴더가 없으면 하위 계층까지 한 번에 생성
+        // ✅ 2. 폴더가 없으면 생성
         if (!fs.existsSync(storageDir)) {
             fs.mkdirSync(storageDir, { recursive: true });
+            console.log(`📁 폴더 생성됨: ${storageDir}`);
         }
 
         files.forEach((file, index) => {
-            // 파일명 중복 방지를 위해 타임스탬프와 인덱스 추가
             const safeFileName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
             const saveName = `${Date.now()}_${index}_${safeFileName}`;
             const finalPath = path.join(storageDir, saveName);
 
-            // 임시 폴더에서 최종 저장 위치로 이동
+            // ✅ 3. multer가 tmp에 넣은 파일을 새 위치로 이동
             if (fs.existsSync(file.path)) {
                 fs.renameSync(file.path, finalPath);
+                console.log(`✅ 이동 완료: ${file.path} -> ${finalPath}`);
+            } else {
+                console.error(`❌ 원본 파일(tmp)을 찾을 수 없음: ${file.path}`);
             }
         });
 
-        console.log(`✅ [성공] ${files.length}개 파일 저장 완료: ${storageDir}`);
-
-        return res.json({
-            success: true,
-            message: "서버 로컬 저장 완료!",
-            count: files.length
-        });
+        return res.json({ success: true, message: "서버 로컬 저장 완료!" });
 
     } catch (e) {
-        console.error("❌ 업로드 컨트롤러 에러:", e.message);
+        console.error("❌ 업로드 에러 상세:", e);
         return res.status(500).json({ success: false, message: e.message });
     }
 };
