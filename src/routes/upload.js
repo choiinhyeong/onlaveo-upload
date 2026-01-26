@@ -6,47 +6,49 @@ const fs = require('fs');
 
 const uploadController = require('../controllers/uploadController');
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // ✅ 2GB
+const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
 
 const safeFolderName = (name) =>
-    name ? name.replace(/[^a-zA-Z0-9가-힣_-]/gu, '_') : 'unknown';
+    name ? String(name).replace(/[^a-zA-Z0-9가-힣_-]/gu, '_') : 'unknown';
+
+function buildStorageDir(req) {
+    // req.body는 "필드가 파일보다 먼저 올 때" 정상 세팅됨
+    const regEmail = safeFolderName(req.body?.regEmail);
+    const regTitle = safeFolderName(req.body?.regTitle);
+
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    return path.join('/root/onlaveo-upload/uploads', regEmail, today, regTitle);
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         try {
-            const regEmail = req.body?.regEmail || 'unknown';
-            const regTitle = req.body?.regTitle || 'unknown';
+            const dir = buildStorageDir(req);
 
-            const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-            const storageDir = path.join(
-                '/root/onlaveo-upload/uploads',
-                safeFolderName(regEmail),
-                today,
-                safeFolderName(regTitle)
-            );
-
-            fs.mkdirSync(storageDir, { recursive: true });
-            cb(null, storageDir);
+            // 그래도 비어있을 수 있으니 마지막 방어
+            fs.mkdirSync(dir, { recursive: true });
+            cb(null, dir);
         } catch (e) {
             cb(e);
         }
     },
     filename: (req, file, cb) => {
-        const fileOrder = req.body?.fileOrder || '0';
-        const safeName = (file.originalname || 'file').replace(/\s+/g, '_');
-        const saveName = `${fileOrder}_${safeName}`;
-        cb(null, saveName);
+        try {
+            const fileOrder = req.body?.fileOrder ? String(req.body.fileOrder) : '0';
+            const original = file.originalname || 'file';
+            const safeName = original.replace(/\s+/g, '_');
+            cb(null, `${fileOrder}_${safeName}`);
+        } catch (e) {
+            cb(e);
+        }
     }
 });
 
 const upload = multer({
     storage,
-    limits: {
-        fileSize: MAX_FILE_SIZE
-    }
+    limits: { fileSize: MAX_FILE_SIZE }
 });
 
-// POST /upload
 router.post('/', upload.single('file'), uploadController.upload);
 
 module.exports = router;
