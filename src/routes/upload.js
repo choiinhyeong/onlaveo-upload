@@ -8,12 +8,10 @@ const fs = require('fs');
 const uploadController = require('../controllers/uploadController');
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
-
-// 🚨 절대경로로 고정 (여기가 핵심)
 const UPLOAD_ROOT = '/root/onlaveo-upload/uploads';
+const TMP_DIR = path.join(UPLOAD_ROOT, '_tmp'); // tmp는 고정 경로로만
 
-const safeFolderName = (name) =>
-    name ? name.replace(/[^a-zA-Z0-9가-힣_-]/gu, '_') : 'unknown';
+fs.mkdirSync(TMP_DIR, { recursive: true });
 
 const safeFileName = (name) =>
     (name || 'file')
@@ -22,30 +20,15 @@ const safeFileName = (name) =>
         .replace(/[^\w.\-가-힣]/gu, '_');
 
 const storage = multer.diskStorage({
+    // ✅ destination은 req.body에 의존하지 말고 무조건 tmp로
     destination: (req, file, cb) => {
-        const regEmail = req.body?.regEmail || 'unknown';
-        const regTitle = req.body?.regTitle || 'unknown';
-
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-
-        const storageDir = path.join(
-            UPLOAD_ROOT,
-            safeFolderName(regEmail),
-            today,
-            safeFolderName(regTitle)
-        );
-
-        // ✅ 비동기 mkdir (이벤트루프 블로킹 방지)
-        fs.mkdir(storageDir, { recursive: true }, (err) => {
-            if (err) return cb(err);
-            cb(null, storageDir);
-        });
+        cb(null, TMP_DIR);
     },
-
+    // ✅ filename도 일단 충돌 안 나게 임시명으로
     filename: (req, file, cb) => {
-        const fileOrder = req.body?.fileOrder || '0';
-        const safeName = safeFileName(file.originalname);
-        cb(null, `${fileOrder}_${safeName}`);
+        const ext = path.extname(file.originalname || '');
+        const unique = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        cb(null, `uploading_${unique}${ext}`);
     }
 });
 
@@ -54,6 +37,7 @@ const upload = multer({
     limits: { fileSize: MAX_FILE_SIZE }
 });
 
+// POST /upload
 router.post('/', upload.single('file'), uploadController.upload);
 
 module.exports = router;
