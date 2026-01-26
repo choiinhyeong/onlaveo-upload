@@ -15,20 +15,28 @@ const safeFolderName = (name) =>
 
 const safeFileName = (name) =>
     (name || 'file')
-        .replace(/[\/\\]/g, '_')                 // 경로 문자 제거
-        .replace(/\s+/g, '_')                    // 공백 -> _
-        .replace(/[^\w.\-가-힣]/gu, '_');        // 나머지 위험문자 -> _
+        .replace(/[\/\\]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/[^\w.\-가-힣]/gu, '_');
+
+const decodeHeader = (v) =>
+    decodeURIComponent(escape(Buffer.from(v, 'base64').toString('utf8')));
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         try {
-            // ⚠️ multer가 destination 호출할 때 req.body가 비어있을 수 있음
-            // 그래서 프론트에서 FormData에 텍스트 필드(regEmail/regTitle/fileOrder)를
-            // 파일보다 "먼저 append" 해야 unknown 안 생김.
-            const regEmail = req.body?.regEmail || 'unknown';
-            const regTitle = req.body?.regTitle || 'unknown';
+            const rawEmail = req.headers['x-reg-email'];
+            const rawTitle = req.headers['x-reg-title'];
 
-            const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+            if (!rawEmail || !rawTitle) {
+                return cb(new Error('Missing upload headers'));
+            }
+
+            const regEmail = decodeHeader(rawEmail);
+            const regTitle = decodeHeader(rawTitle);
+
+            const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
             const storageDir = path.join(
                 UPLOAD_ROOT,
                 safeFolderName(regEmail),
@@ -36,7 +44,6 @@ const storage = multer.diskStorage({
                 safeFolderName(regTitle)
             );
 
-            // ✅ 비동기 mkdir
             fs.mkdir(storageDir, { recursive: true }, (err) => {
                 if (err) return cb(err);
                 cb(null, storageDir);
@@ -47,10 +54,9 @@ const storage = multer.diskStorage({
     },
 
     filename: (req, file, cb) => {
-        const fileOrder = req.body?.fileOrder || '0';
+        const fileOrder = req.headers['x-file-order'] || '0';
         const safeName = safeFileName(file.originalname);
-        const saveName = `${fileOrder}_${safeName}`;
-        cb(null, saveName);
+        cb(null, `${fileOrder}_${safeName}`);
     }
 });
 
@@ -59,7 +65,6 @@ const upload = multer({
     limits: { fileSize: MAX_FILE_SIZE }
 });
 
-// POST /upload  (=> /upload 로 마운트되어 있으니 실제는 POST /upload)
 router.post('/', upload.single('file'), uploadController.upload);
 
 module.exports = router;
