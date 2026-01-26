@@ -1,4 +1,5 @@
 require('dotenv').config({ path: '/root/onlaveo-upload/.env' });
+
 const express = require('express');
 const cors = require('cors');
 const uploadRouter = require('./routes/upload');
@@ -11,9 +12,11 @@ app.use(cors({
     credentials: true
 }));
 
-// 메타데이터 용량 제한 해제
+// 메타데이터 용량 제한(너 설정 유지)
 app.use(express.json({ limit: '2048mb' }));
 app.use(express.urlencoded({ limit: '2048mb', extended: true }));
+
+app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/upload', uploadRouter);
 
@@ -21,6 +24,6 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Node Server running on port ${PORT}`);
 });
 
-// 서버 타임아웃 10분으로 증설
+// 서버 타임아웃 10분
 server.timeout = 600000;
 server.keepAliveTimeout = 610000;

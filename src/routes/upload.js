@@ -2,13 +2,22 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+
 const uploadController = require('../controllers/uploadController');
 
+const TMP_DIR = path.join(__dirname, '../../uploads/tmp');
+
+// ✅ 2GB 영상 대응
+const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+
 const upload = multer({
-    dest: path.join(__dirname, '../../uploads/tmp')
+    dest: TMP_DIR,
+    limits: {
+        fileSize: MAX_FILE_SIZE
+    }
 });
 
-// POST /upload (사진, 영상 모두 이 경로로 동시에 쏩니다)
+// POST /upload
 router.post('/', upload.single('file'), uploadController.upload);
 
 module.exports = router;
