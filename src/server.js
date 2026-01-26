@@ -12,9 +12,9 @@ app.use(cors({
     credentials: true
 }));
 
-// 메타데이터 용량 제한(너 설정 유지)
-app.use(express.json({ limit: '2048mb' }));
-app.use(express.urlencoded({ limit: '2048mb', extended: true }));
+// 메타데이터 JSON이 혹시 들어와도 안전하게(파일 자체는 multipart라 여긴 영향 적음)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
@@ -24,6 +24,6 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Node Server running on port ${PORT}`);
 });
 
-// 서버 타임아웃 10분
+// 업로드/대용량 대응(nginx도 timeout 맞춰야 함)
 server.timeout = 600000;
 server.keepAliveTimeout = 610000;
