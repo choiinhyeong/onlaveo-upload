@@ -25,6 +25,6 @@ router.post('/', upload.single('file'), uploadController.upload);
  * - 호출 주소: POST /upload-batch
  * - 최대 50개까지 한 번에 수용 가능 (필요시 숫자 조정)
  */
-router.post('-batch', upload.array('files', 50), uploadController.uploadBatch);
+router.post('/batch', upload.array('files', 50), uploadController.uploadBatch);
 
 module.exports = router;
